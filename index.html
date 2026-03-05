@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Bastion</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --q-cyan: #00f5ff;
+    --q-blue: #0066ff;
+    --q-dark: #020814;
+    --q-panel: #050e1f;
+    --q-border: rgba(0,245,255,0.2);
+    --q-glow: 0 0 20px rgba(0,245,255,0.4);
+    --q-text: #c8e8ff;
+    --q-accent: #ff4ecd;
+    --q-green: #00ff88;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--q-dark);
+    color: var(--q-text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #quantum-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .screen.active { display: flex; }
+
+  #login-screen { flex-direction: column; }
+
+  .login-container {
+    position: relative;
+    width: 420px;
+    animation: floatIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes floatIn {
+    from { opacity: 0; transform: translateY(40px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .logo-section { text-align: center; margin-bottom: 32px; }
+
+  .logo-hex {
+    width: 80px; height: 80px;
+    margin: 0 auto 16px;
+    animation: rotateSlow 12s linear infinite;
+  }
+  @keyframes rotateSlow { to { transform: rotate(360deg); } }
+  .logo-hex svg { width: 100%; height: 100%; }
+
+  .logo-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, var(--q-cyan) 0%, var(--q-blue) 50%, var(--q-accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-transform: uppercase;
+  }
+
+  .logo-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: rgba(0,245,255,0.5);
+    margin-top: 4px;
+  }
+
+  .panel {
+    background: rgba(5, 14, 31, 0.92);
+    border: 1px solid var(--q-border);
+    border-radius: 16px;
+    padding: 36px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 0 60px rgba(0,102,255,0.15), inset 0 1px 0 rgba(0,245,255,0.1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--q-cyan), transparent);
+    animation: scanLine 3s ease-in-out infinite;
+  }
+  @keyframes scanLine {
+    0%, 100% { opacity: 0; transform: translateX(-100%); }
+    50% { opacity: 1; transform: translateX(100%); }
+  }
+
+  .tab-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 28px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    padding: 4px;
+  }
+
+  .tab-btn {
+    flex: 1; padding: 10px;
+    background: transparent; border: none;
+    border-radius: 7px;
+    color: rgba(200,232,255,0.5);
+    font-family: 'Orbitron', monospace;
+    font-size: 11px; letter-spacing: 2px;
+    cursor: pointer; transition: all 0.3s;
+    text-transform: uppercase;
+  }
+  .tab-btn.active {
+    background: rgba(0,245,255,0.1);
+    color: var(--q-cyan);
+    box-shadow: 0 0 12px rgba(0,245,255,0.2);
+  }
+
+  .form-group { margin-bottom: 18px; }
+
+  .form-label {
+    display: block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 3px;
+    color: rgba(0,245,255,0.6);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .form-input {
+    width: 100%; padding: 12px 16px;
+    background: rgba(0,20,50,0.6);
+    border: 1px solid rgba(0,245,255,0.15);
+    border-radius: 8px;
+    color: var(--q-text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    transition: all 0.3s; outline: none;
+  }
+  .form-input:focus {
+    border-color: var(--q-cyan);
+    box-shadow: 0 0 16px rgba(0,245,255,0.15);
+    background: rgba(0,30,70,0.6);
+  }
+  .form-input::placeholder { color: rgba(200,232,255,0.2); }
+
+  .btn-primary {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, rgba(0,102,255,0.8), rgba(0,245,255,0.6));
+    border: 1px solid var(--q-cyan);
+    border-radius: 8px; color: #fff;
+    font-family: 'Orbitron', monospace;
+    font-size: 13px; letter-spacing: 3px;
+    text-transform: uppercase; cursor: pointer;
+    transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .btn-primary::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg,transparent,rgba(255,255,255,0.1),transparent);
+    transform: translateX(-100%); transition: transform 0.4s;
+  }
+  .btn-primary:hover::after { transform: translateX(100%); }
+  .btn-primary:hover { box-shadow: var(--q-glow), 0 4px 24px rgba(0,102,255,0.4); transform: translateY(-1px); }
+
+  .admin-link { text-align: center; margin-top: 18px; }
+  .admin-link a {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 2px;
+    color: rgba(255,78,205,0.5);
+    text-decoration: none; transition: color 0.3s;
+  }
+  .admin-link a:hover { color: var(--q-accent); }
+
+  .error-msg {
+    background: rgba(255,60,60,0.1);
+    border: 1px solid rgba(255,60,60,0.3);
+    border-radius: 6px; padding: 10px 14px;
+    font-size: 13px; color: #ff6b6b;
+    margin-bottom: 16px; display: none;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .success-msg {
+    background: rgba(0,255,136,0.1);
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 6px; padding: 10px 14px;
+    font-size: 13px; color: var(--q-green);
+    margin-bottom: 16px; display: none;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* APP */
+  #app-screen { flex-direction: column; align-items: stretch; overflow-y: auto; }
+
+  .app-nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 60px;
+    background: rgba(2,8,20,0.95);
+    border-bottom: 1px solid var(--q-border);
+    backdrop-filter: blur(20px);
+    display: flex; align-items: center;
+    padding: 0 24px; gap: 20px; z-index: 100;
+  }
+
+  .nav-logo {
+    font-family: 'Orbitron', monospace; font-size: 14px;
+    font-weight: 900; letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--q-cyan), var(--q-blue));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .nav-search { flex: 1; display: flex; gap: 10px; align-items: center; }
+
+  .nav-input {
+    flex: 1; padding: 8px 16px;
+    background: rgba(0,20,50,0.8);
+    border: 1px solid rgba(0,245,255,0.15);
+    border-radius: 20px;
+    color: var(--q-text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; outline: none; transition: all 0.3s;
+  }
+  .nav-input:focus { border-color: var(--q-cyan); box-shadow: 0 0 12px rgba(0,245,255,0.1); }
+
+  .nav-go-btn {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, rgba(0,102,255,0.6), rgba(0,245,255,0.4));
+    border: 1px solid var(--q-cyan); border-radius: 20px;
+    color: #fff; font-family: 'Orbitron', monospace;
+    font-size: 10px; letter-spacing: 2px; cursor: pointer;
+    transition: all 0.3s; white-space: nowrap;
+  }
+  .nav-go-btn:hover { box-shadow: var(--q-glow); }
+
+  .nav-user { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--q-cyan); white-space: nowrap; }
+
+  .nav-logout {
+    padding: 6px 14px; background: transparent;
+    border: 1px solid rgba(255,78,205,0.3);
+    border-radius: 6px; color: var(--q-accent);
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .nav-logout:hover { background: rgba(255,78,205,0.1); }
+
+  .app-main {
+    margin-top: 60px; flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: calc(100vh - 60px); padding: 40px 20px;
+  }
+
+  .home-section {
+    text-align: center; width: 100%; max-width: 680px;
+    animation: floatIn 0.6s ease both;
+  }
+
+  .home-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(36px, 6vw, 64px); font-weight: 900;
+    letter-spacing: 6px;
+    background: linear-gradient(135deg, var(--q-cyan) 0%, var(--q-blue) 50%, var(--q-accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 8px;
+    animation: pulseGlow 4s ease-in-out infinite;
+  }
+  @keyframes pulseGlow {
+    0%,100% { filter: drop-shadow(0 0 8px rgba(0,245,255,0.3)); }
+    50% { filter: drop-shadow(0 0 20px rgba(0,245,255,0.6)); }
+  }
+
+  .home-tagline {
+    font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    letter-spacing: 5px; color: rgba(0,245,255,0.4);
+    margin-bottom: 48px; text-transform: uppercase;
+  }
+
+  .search-bar {
+    display: flex; gap: 0;
+    background: rgba(5,14,31,0.9);
+    border: 1px solid var(--q-border); border-radius: 50px;
+    padding: 6px 6px 6px 24px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 0 40px rgba(0,102,255,0.1);
+    transition: box-shadow 0.3s; margin-bottom: 32px;
+  }
+  .search-bar:focus-within {
+    box-shadow: 0 0 40px rgba(0,245,255,0.2);
+    border-color: rgba(0,245,255,0.4);
+  }
+
+  .search-input {
+    flex: 1; background: transparent; border: none;
+    color: var(--q-text); font-family: 'Share Tech Mono', monospace;
+    font-size: 15px; outline: none;
+  }
+  .search-input::placeholder { color: rgba(200,232,255,0.25); }
+
+  .search-btn {
+    padding: 12px 28px;
+    background: linear-gradient(135deg, var(--q-blue), var(--q-cyan));
+    border: none; border-radius: 44px;
+    color: #000; font-family: 'Orbitron', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .search-btn:hover { box-shadow: var(--q-glow); transform: scale(1.03); }
+
+  .search-engine-badge {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; color: rgba(200,232,255,0.35);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 2px;
+  }
+
+  #result-frame-wrap { display: none; width: 100%; height: calc(100vh - 60px); margin-top: 60px; }
+  #result-frame-wrap.visible { display: block; }
+  #result-frame { width: 100%; height: 100%; border: none; }
+
+  /* ADMIN */
+  #admin-screen { flex-direction: column; align-items: stretch; overflow-y: auto; }
+
+  .admin-nav {
+    position: fixed; top: 0; left: 0; right: 0; height: 60px;
+    background: rgba(20,2,10,0.97);
+    border-bottom: 1px solid rgba(255,78,205,0.3);
+    backdrop-filter: blur(20px);
+    display: flex; align-items: center;
+    padding: 0 24px; gap: 16px; z-index: 100;
+  }
+
+  .admin-logo {
+    font-family: 'Orbitron', monospace; font-size: 13px;
+    font-weight: 900; letter-spacing: 3px;
+    color: var(--q-accent);
+    text-shadow: 0 0 12px rgba(255,78,205,0.5);
+  }
+
+  .admin-badge {
+    padding: 3px 10px;
+    background: rgba(255,78,205,0.15);
+    border: 1px solid rgba(255,78,205,0.4);
+    border-radius: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; color: var(--q-accent);
+  }
+
+  .admin-main { margin-top: 60px; padding: 32px; min-height: calc(100vh - 60px); }
+
+  .admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px; margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: rgba(5,14,31,0.8);
+    border: 1px solid var(--q-border);
+    border-radius: 12px; padding: 24px;
+    position: relative; overflow: hidden;
+    animation: floatIn 0.6s ease both;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--q-cyan), transparent);
+  }
+
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    letter-spacing: 3px; color: rgba(0,245,255,0.5);
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: 'Orbitron', monospace; font-size: 36px;
+    font-weight: 700; color: var(--q-cyan);
+    text-shadow: 0 0 20px rgba(0,245,255,0.4);
+  }
+
+  .section-title {
+    font-family: 'Orbitron', monospace; font-size: 14px;
+    letter-spacing: 4px; color: var(--q-cyan);
+    text-transform: uppercase; margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--q-border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title::before {
+    content: ''; width: 4px; height: 16px;
+    background: var(--q-cyan); border-radius: 2px;
+    box-shadow: 0 0 8px var(--q-cyan);
+  }
+
+  .data-table { width: 100%; border-collapse: collapse; margin-bottom: 32px; }
+  .data-table th {
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    letter-spacing: 2px; color: rgba(0,245,255,0.5);
+    text-align: left; padding: 12px 16px;
+    border-bottom: 1px solid var(--q-border); text-transform: uppercase;
+  }
+  .data-table td {
+    padding: 14px 16px; font-family: 'Share Tech Mono', monospace;
+    font-size: 12px; color: var(--q-text);
+    border-bottom: 1px solid rgba(0,245,255,0.05);
+  }
+  .data-table tr:hover td { background: rgba(0,245,255,0.03); }
+
+  .status-online {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--q-green);
+  }
+  .status-online::before {
+    content: ''; width: 7px; height: 7px;
+    background: var(--q-green); border-radius: 50%;
+    box-shadow: 0 0 6px var(--q-green);
+    animation: pulse 2s infinite;
+  }
+  .status-offline { color: rgba(200,232,255,0.3); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .activity-panel {
+    background: rgba(2,5,12,0.9);
+    border: 1px solid var(--q-border);
+    border-radius: 12px; overflow: hidden; margin-bottom: 32px;
+  }
+  .activity-header {
+    padding: 14px 20px;
+    background: rgba(0,245,255,0.05);
+    border-bottom: 1px solid var(--q-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .activity-header span {
+    font-family: 'Orbitron', monospace; font-size: 11px;
+    letter-spacing: 3px; color: var(--q-cyan);
+  }
+  .live-badge {
+    padding: 3px 10px;
+    background: rgba(0,255,136,0.1);
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 20px; font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; color: var(--q-green);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .live-badge::before {
+    content: ''; width: 6px; height: 6px;
+    background: var(--q-green); border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+
+  .activity-log { padding: 8px; max-height: 320px; overflow-y: auto; }
+  .activity-log::-webkit-scrollbar { width: 4px; }
+  .activity-log::-webkit-scrollbar-thumb { background: rgba(0,245,255,0.3); border-radius: 2px; }
+
+  .log-entry {
+    display: flex; gap: 12px; padding: 8px 12px;
+    border-radius: 6px; align-items: flex-start;
+    animation: slideInLog 0.3s ease both;
+  }
+  @keyframes slideInLog { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+  .log-entry:hover { background: rgba(0,245,255,0.03); }
+  .log-time { color: rgba(0,245,255,0.4); white-space: nowrap; min-width: 75px; font-family:'Share Tech Mono';font-size:12px; }
+  .log-user { color: var(--q-accent); min-width: 100px; font-family:'Share Tech Mono';font-size:12px; }
+  .log-action { color: var(--q-text); word-break: break-all; font-family:'Share Tech Mono';font-size:12px; }
+
+  .session-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px; margin-bottom: 32px;
+  }
+
+  .session-card {
+    background: rgba(5,14,31,0.9);
+    border: 1px solid var(--q-border);
+    border-radius: 10px; overflow: hidden;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .session-card:hover {
+    border-color: var(--q-cyan);
+    box-shadow: var(--q-glow);
+    transform: translateY(-2px);
+  }
+  .session-card-header {
+    padding: 12px 16px;
+    background: rgba(0,245,255,0.05);
+    border-bottom: 1px solid var(--q-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .session-user-info { display: flex; align-items: center; gap: 10px; }
+  .user-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--q-blue), var(--q-cyan));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700; color: #000;
+  }
+  .session-username { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--q-text); }
+  .session-preview { padding: 14px 16px; min-height: 80px; }
+  .session-current-page { font-family:'Share Tech Mono';font-size:11px;color:rgba(0,245,255,0.6);margin-bottom:8px; }
+  .session-page-title { font-family:'Rajdhani';font-size:14px;color:var(--q-text);font-weight:600; }
+  .session-history { padding: 10px 16px 14px; border-top: 1px solid rgba(0,245,255,0.05); }
+  .session-history-label { font-family:'Share Tech Mono';font-size:10px;letter-spacing:2px;color:rgba(200,232,255,0.3);margin-bottom:6px;text-transform:uppercase; }
+  .history-item { font-family:'Share Tech Mono';font-size:11px;color:rgba(200,232,255,0.5);padding:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+
+  .btn-danger {
+    padding: 8px 18px;
+    background: rgba(255,78,205,0.1);
+    border: 1px solid rgba(255,78,205,0.4);
+    border-radius: 6px; color: var(--q-accent);
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .btn-danger:hover { background: rgba(255,78,205,0.2); }
+
+  .btn-sm {
+    padding: 5px 12px;
+    background: rgba(0,245,255,0.08);
+    border: 1px solid rgba(0,245,255,0.2);
+    border-radius: 5px; color: var(--q-cyan);
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-sm:hover { background: rgba(0,245,255,0.15); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(10px);
+    z-index: 200; display: none;
+    align-items: center; justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--q-panel);
+    border: 1px solid var(--q-border);
+    border-radius: 16px; padding: 32px;
+    width: 90%; max-width: 600px;
+    box-shadow: 0 0 60px rgba(0,102,255,0.2);
+    animation: floatIn 0.3s ease both;
+  }
+  .modal-title {
+    font-family: 'Orbitron', monospace; font-size: 16px;
+    letter-spacing: 3px; color: var(--q-cyan); margin-bottom: 24px;
+  }
+  .modal-close {
+    float: right; background: none; border: none;
+    color: rgba(200,232,255,0.4); font-size: 22px;
+    cursor: pointer; transition: color 0.2s; line-height: 1;
+  }
+  .modal-close:hover { color: var(--q-text); }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+  ::-webkit-scrollbar-thumb { background: rgba(0,245,255,0.2); border-radius: 3px; }
+
+  #toast {
+    position: fixed; bottom: 32px; right: 32px;
+    padding: 14px 24px;
+    background: rgba(5,14,31,0.95);
+    border: 1px solid var(--q-cyan);
+    border-radius: 10px;
+    font-family: 'Share Tech Mono', monospace; font-size: 13px;
+    color: var(--q-cyan); box-shadow: var(--q-glow);
+    z-index: 999; transform: translateY(80px); opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16,1,0.3,1);
+    pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+
+<canvas id="quantum-canvas"></canvas>
+
+<!-- LOGIN -->
+<div id="login-screen" class="screen active">
+  <div class="login-container">
+    <div class="logo-section">
+      <div class="logo-hex">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="40,4 72,22 72,58 40,76 8,58 8,22" stroke="url(#hg)" stroke-width="1.5" fill="rgba(0,102,255,0.05)"/>
+          <polygon points="40,14 62,26 62,54 40,66 18,54 18,26" stroke="rgba(0,245,255,0.3)" stroke-width="0.5" fill="rgba(0,245,255,0.03)"/>
+          <circle cx="40" cy="40" r="8" fill="url(#hg)" opacity="0.8"/>
+          <circle cx="40" cy="40" r="14" stroke="url(#hg)" stroke-width="0.5" fill="none"/>
+          <line x1="40" y1="14" x2="40" y2="26" stroke="url(#hg)" stroke-width="0.8"/>
+          <line x1="40" y1="54" x2="40" y2="66" stroke="url(#hg)" stroke-width="0.8"/>
+          <line x1="18" y1="26" x2="26" y2="31" stroke="url(#hg)" stroke-width="0.8"/>
+          <line x1="54" y1="49" x2="62" y2="54" stroke="url(#hg)" stroke-width="0.8"/>
+          <defs>
+            <linearGradient id="hg" x1="0" y1="0" x2="80" y2="80">
+              <stop offset="0%" stop-color="#00f5ff"/>
+              <stop offset="100%" stop-color="#0066ff"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="logo-title">Quantum Bastion</div>
+      <div class="logo-sub">Secure · Private · Encrypted</div>
+    </div>
+
+    <div class="panel">
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchTab('login')">Sign In</button>
+        <button class="tab-btn" onclick="switchTab('register')">Register</button>
+      </div>
+      <div id="error-box" class="error-msg"></div>
+      <div id="success-box" class="success-msg"></div>
+
+      <div id="login-form">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" type="text" id="login-user" placeholder="enter username" autocomplete="off"
+            onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" type="password" id="login-pass" placeholder="••••••••"
+            onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <button class="btn-primary" onclick="doLogin()">Access System</button>
+      </div>
+
+      <div id="register-form" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" type="text" id="reg-user" placeholder="choose username" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" type="password" id="reg-pass" placeholder="min 6 characters">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <input class="form-input" type="password" id="reg-pass2" placeholder="repeat password"
+            onkeydown="if(event.key==='Enter')doRegister()">
+        </div>
+        <button class="btn-primary" onclick="doRegister()">Create Account</button>
+      </div>
+
+      <div class="admin-link">
+        <a href="#" onclick="openAdminLogin();return false;">[ ADMIN ACCESS ]</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" class="screen">
+  <nav class="app-nav">
+    <div class="nav-logo">QB</div>
+    <div class="nav-search">
+      <input class="nav-input" id="nav-search-input" type="text"
+        placeholder="Search DuckDuckGo or enter URL..."
+        onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="nav-go-btn" onclick="doSearch()">GO</button>
+    </div>
+    <div class="nav-user" id="nav-username"></div>
+    <button class="nav-logout" onclick="doLogout()">Logout</button>
+  </nav>
+
+  <div id="app-main-home" class="app-main">
+    <div class="home-section">
+      <div class="home-logo">Quantum Bastion</div>
+      <div class="home-tagline">Powered by DuckDuckGo &middot; Private by Design</div>
+      <div class="search-bar">
+        <input class="search-input" id="home-search-input" type="text"
+          placeholder="Search the web or enter a URL..."
+          onkeydown="if(event.key==='Enter')doHomeSearch()">
+        <button class="search-btn" onclick="doHomeSearch()">Search</button>
+      </div>
+      <div class="search-engine-badge">&#x1F986; Powered by DuckDuckGo</div>
+    </div>
+  </div>
+
+  <div id="result-frame-wrap">
+    <iframe id="result-frame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"></iframe>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="admin-screen" class="screen">
+  <nav class="admin-nav">
+    <div class="admin-logo">&#x2B21; QUANTUM BASTION</div>
+    <div class="admin-badge">ADMIN CONTROL</div>
+    <div style="flex:1"></div>
+    <button class="btn-danger" onclick="doAdminLogout()">Exit Admin</button>
+  </nav>
+  <div class="admin-main">
+    <div class="admin-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Users</div>
+        <div class="stat-value" id="stat-users">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Sessions</div>
+        <div class="stat-value" id="stat-sessions">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Searches</div>
+        <div class="stat-value" id="stat-searches">0</div>
+      </div>
+    </div>
+
+    <div class="section-title">Registered Users</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Username</th><th>Registered</th><th>Last Seen</th><th>Searches</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="users-tbody"></tbody>
+    </table>
+
+    <div class="section-title">Live Activity Feed</div>
+    <div class="activity-panel">
+      <div class="activity-header">
+        <span>ACTIVITY LOG</span>
+        <span class="live-badge">LIVE</span>
+      </div>
+      <div class="activity-log" id="activity-log">
+        <div style="padding:20px;text-align:center;color:rgba(200,232,255,0.3);font-family:'Share Tech Mono';font-size:12px;">
+          Waiting for user activity...
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">User Sessions</div>
+    <div class="session-grid" id="session-grid">
+      <div style="color:rgba(200,232,255,0.3);font-family:'Share Tech Mono';font-size:12px;padding:20px;">
+        No active sessions
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN MODAL -->
+<div id="admin-modal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-title">
+      <button class="modal-close" onclick="closeAdminLogin()">&#x00D7;</button>
+      ADMIN ACCESS
+    </div>
+    <div id="admin-error" class="error-msg"></div>
+    <div class="form-group">
+      <label class="form-label">Admin ID</label>
+      <input class="form-input" type="text" id="admin-user-input" placeholder="admin username"
+        onkeydown="if(event.key==='Enter')doAdminLogin()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Admin Key</label>
+      <input class="form-input" type="password" id="admin-pass-input" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')doAdminLogin()">
+    </div>
+    <button class="btn-primary" onclick="doAdminLogin()"
+      style="background:linear-gradient(135deg,rgba(140,0,100,0.7),rgba(255,78,205,0.5));border-color:var(--q-accent)">
+      Authenticate
+    </button>
+  </div>
+</div>
+
+<!-- USER DETAIL MODAL -->
+<div id="user-modal" class="modal-backdrop">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-title">
+      <button class="modal-close" onclick="closeUserModal()">&#x00D7;</button>
+      USER ACTIVITY
+    </div>
+    <div id="user-modal-content"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CANVAS ANIMATION ──
+(function(){
+  const canvas = document.getElementById('quantum-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const particles = Array.from({length:130}, () => ({
+    x: Math.random()*window.innerWidth,
+    y: Math.random()*window.innerHeight,
+    vx:(Math.random()-.5)*.4,
+    vy:(Math.random()-.5)*.4,
+    r: Math.random()*1.5+.5,
+    alpha: Math.random()*.6+.2,
+    color: Math.random()>.7?'#ff4ecd':Math.random()>.5?'#00f5ff':'#0066ff'
+  }));
+
+  function drawHex(){
+    ctx.save(); ctx.globalAlpha=.022; ctx.strokeStyle='#00f5ff'; ctx.lineWidth=.5;
+    const s=60, cols=Math.ceil(W/(s*1.5))+2, rows=Math.ceil(H/(s*Math.sqrt(3)))+2;
+    for(let r=-1;r<rows;r++){
+      for(let c=-1;c<cols;c++){
+        const cx=c*s*1.5, cy=r*s*Math.sqrt(3)+(c%2?s*Math.sqrt(3)/2:0);
+        ctx.beginPath();
+        for(let i=0;i<6;i++){
+          const a=Math.PI/180*(60*i-30);
+          const px=cx+s*Math.cos(a), py=cy+s*Math.sin(a);
+          i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+        }
+        ctx.closePath(); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawConns(){
+    const md=100;
+    for(let i=0;i<particles.length;i++){
+      for(let j=i+1;j<particles.length;j++){
+        const dx=particles[i].x-particles[j].x, dy=particles[i].y-particles[j].y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<md){
+          ctx.save();
+          ctx.globalAlpha=(1-d/md)*.1;
+          ctx.strokeStyle='#00f5ff'; ctx.lineWidth=.4;
+          ctx.beginPath(); ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(particles[j].x,particles[j].y); ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+  }
+
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    drawHex(); drawConns();
+    particles.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0||p.x>W||p.y<0||p.y>H){
+        p.x=Math.random()*W; p.y=Math.random()*H;
+      }
+      ctx.save(); ctx.globalAlpha=p.alpha; ctx.fillStyle=p.color;
+      ctx.shadowBlur=8; ctx.shadowColor=p.color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    });
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+// ── CREDENTIALS - CHANGE BEFORE DEPLOYING ──
+const ADMIN_CREDS = { user: 'qb_admin', pass: 'QB@dm1n#2024!' };
+
+// ── STORAGE ──
+const getUsers=()=>{ try{return JSON.parse(localStorage.getItem('qb_users')||'{}')}catch(e){return{}} };
+const saveUsers=u=>localStorage.setItem('qb_users',JSON.stringify(u));
+const getActivity=()=>{ try{return JSON.parse(localStorage.getItem('qb_activity')||'[]')}catch(e){return[]} };
+const getSession=u=>{ try{return JSON.parse(localStorage.getItem('qb_sess_'+u)||'null')}catch(e){return null} };
+const updateSession=(u,d)=>{
+  const s=getSession(u)||{searches:[],currentPage:'Home',active:false};
+  Object.assign(s,d); s.lastSeen=new Date().toISOString();
+  localStorage.setItem('qb_sess_'+u,JSON.stringify(s));
+};
+
+function logActivity(username,type,action){
+  const log=getActivity();
+  log.unshift({time:new Date().toLocaleTimeString(),user:username,type,action});
+  if(log.length>200)log.splice(200);
+  localStorage.setItem('qb_activity',JSON.stringify(log));
+}
+
+// ── AUTH ──
+let currentUser=null;
+
+function switchTab(tab){
+  document.getElementById('login-form').style.display=tab==='login'?'':'none';
+  document.getElementById('register-form').style.display=tab==='register'?'':'none';
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='register'));
+  });
+  clearMessages();
+}
+
+function showError(msg){ const e=document.getElementById('error-box'); e.textContent=msg; e.style.display='block'; document.getElementById('success-box').style.display='none'; }
+function showSuccess(msg){ const e=document.getElementById('success-box'); e.textContent=msg; e.style.display='block'; document.getElementById('error-box').style.display='none'; }
+function clearMessages(){ document.getElementById('error-box').style.display='none'; document.getElementById('success-box').style.display='none'; }
+
+function doLogin(){
+  const username=document.getElementById('login-user').value.trim();
+  const password=document.getElementById('login-pass').value;
+  if(!username||!password) return showError('Please fill in all fields.');
+  const users=getUsers();
+  if(!users[username]) return showError('Account not found.');
+  if(users[username].pass!==btoa(password)) return showError('Incorrect password.');
+  users[username].lastSeen=new Date().toISOString();
+  saveUsers(users);
+  currentUser=username;
+  localStorage.setItem('qb_current_user',username);
+  logActivity(username,'login','Signed in');
+  updateSession(username,{currentPage:'Home',active:true});
+  document.getElementById('nav-username').textContent='&#x2B21; '+username.toUpperCase();
+  showScreen('app-screen');
+  toast('Welcome back, '+username+'!');
+}
+
+function doRegister(){
+  const username=document.getElementById('reg-user').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  const pass2=document.getElementById('reg-pass2').value;
+  if(!username||!pass) return showError('Please fill in all fields.');
+  if(username.length<3) return showError('Username must be at least 3 characters.');
+  if(pass.length<6) return showError('Password must be at least 6 characters.');
+  if(pass!==pass2) return showError('Passwords do not match.');
+  const users=getUsers();
+  if(users[username]) return showError('Username already taken.');
+  users[username]={pass:btoa(pass),registered:new Date().toISOString(),lastSeen:new Date().toISOString(),searches:0};
+  saveUsers(users);
+  showSuccess('Account created! You can now sign in.');
+  setTimeout(()=>switchTab('login'),1500);
+}
+
+function doLogout(){
+  if(currentUser){ logActivity(currentUser,'logout','Signed out'); updateSession(currentUser,{active:false}); }
+  currentUser=null; localStorage.removeItem('qb_current_user');
+  showScreen('login-screen');
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pass').value='';
+}
+
+// ── ADMIN ──
+function openAdminLogin(){ document.getElementById('admin-modal').classList.add('open'); setTimeout(()=>document.getElementById('admin-user-input').focus(),100); }
+function closeAdminLogin(){
+  document.getElementById('admin-modal').classList.remove('open');
+  document.getElementById('admin-user-input').value='';
+  document.getElementById('admin-pass-input').value='';
+  document.getElementById('admin-error').style.display='none';
+}
+
+function doAdminLogin(){
+  const u=document.getElementById('admin-user-input').value.trim();
+  const p=document.getElementById('admin-pass-input').value;
+  if(u===ADMIN_CREDS.user&&p===ADMIN_CREDS.pass){
+    closeAdminLogin(); showScreen('admin-screen');
+    loadAdminData(); startAdminRefresh();
+  } else {
+    const el=document.getElementById('admin-error');
+    el.textContent='Invalid credentials.'; el.style.display='block';
+  }
+}
+
+function doAdminLogout(){ stopAdminRefresh(); showScreen('login-screen'); }
+
+let _adminTimer=null;
+function startAdminRefresh(){ _adminTimer=setInterval(loadAdminData,4000); }
+function stopAdminRefresh(){ if(_adminTimer)clearInterval(_adminTimer); }
+
+function loadAdminData(){
+  const users=getUsers();
+  const ukeys=Object.keys(users);
+  document.getElementById('stat-users').textContent=ukeys.length;
+  let active=0, totalSearches=0;
+  ukeys.forEach(u=>{ const s=getSession(u); if(s&&s.active)active++; totalSearches+=(users[u].searches||0); });
+  document.getElementById('stat-sessions').textContent=active;
+  document.getElementById('stat-searches').textContent=totalSearches;
+
+  // Users table
+  const tbody=document.getElementById('users-tbody');
+  tbody.innerHTML='';
+  if(ukeys.length===0){
+    tbody.innerHTML='<tr><td colspan="6" style="color:rgba(200,232,255,0.3);text-align:center;padding:20px">No users registered yet</td></tr>';
+  } else {
+    ukeys.forEach(username=>{
+      const user=users[username];
+      const session=getSession(username);
+      const isActive=session&&session.active;
+      const lastSeen=user.lastSeen?new Date(user.lastSeen).toLocaleString():'Never';
+      const registered=user.registered?new Date(user.registered).toLocaleDateString():'Unknown';
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td style="color:var(--q-cyan)">${username}</td>
+        <td>${registered}</td>
+        <td>${lastSeen}</td>
+        <td>${user.searches||0}</td>
+        <td><span class="${isActive?'status-online':'status-offline'}">${isActive?'Online':'Offline'}</span></td>
+        <td>
+          <button class="btn-sm" onclick="viewUserDetail('${username}')">View</button>
+          &nbsp;
+          <button class="btn-sm" style="color:var(--q-accent);border-color:rgba(255,78,205,0.3)" onclick="deleteUser('${username}')">Delete</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Activity log
+  const log=getActivity();
+  const logEl=document.getElementById('activity-log');
+  if(log.length===0){
+    logEl.innerHTML='<div style="padding:20px;text-align:center;color:rgba(200,232,255,0.3);font-family:Share Tech Mono;font-size:12px">No activity yet</div>';
+  } else {
+    logEl.innerHTML=log.slice(0,60).map(e=>`
+      <div class="log-entry ${e.type}">
+        <span class="log-time">${e.time}</span>
+        <span class="log-user">${e.user}</span>
+        <span class="log-action">${e.type==='login'?'&#x2713; ':e.type==='search'?'&#x1F50D; ':'&#x1F310; '}${e.action}</span>
+      </div>`).join('');
+  }
+
+  // Session cards
+  const grid=document.getElementById('session-grid');
+  const activeSessions=ukeys.filter(u=>{ const s=getSession(u); return s&&s.active; });
+  if(activeSessions.length===0){
+    grid.innerHTML='<div style="color:rgba(200,232,255,0.3);font-family:Share Tech Mono;font-size:12px;padding:20px">No active sessions</div>';
+  } else {
+    grid.innerHTML=activeSessions.map(username=>{
+      const session=getSession(username);
+      const searches=(session.searches||[]).slice(-3).reverse();
+      const initials=username.slice(0,2).toUpperCase();
+      const page=session.currentPage||'Home';
+      const shortPage=page.length>45?page.slice(0,45)+'...':page;
+      return `<div class="session-card" onclick="viewUserDetail('${username}')">
+        <div class="session-card-header">
+          <div class="session-user-info">
+            <div class="user-avatar">${initials}</div>
+            <span class="session-username">${username}</span>
+          </div>
+          <span class="status-online" style="font-size:11px;font-family:'Share Tech Mono'">live</span>
+        </div>
+        <div class="session-preview">
+          <div class="session-current-page">CURRENT PAGE</div>
+          <div class="session-page-title">${shortPage}</div>
+        </div>
+        <div class="session-history">
+          <div class="session-history-label">Recent Searches</div>
+          ${searches.length?searches.map(s=>`<div class="history-item">&#x25B8; ${s}</div>`).join('')
+            :'<div class="history-item" style="color:rgba(200,232,255,0.2)">No searches yet</div>'}
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function viewUserDetail(username){
+  const users=getUsers();
+  const user=users[username];
+  const session=getSession(username);
+  const log=getActivity().filter(e=>e.user===username);
+  document.getElementById('user-modal-content').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:rgba(0,20,50,0.5);border:1px solid var(--q-border);border-radius:8px;padding:16px">
+        <div class="stat-label">Username</div>
+        <div style="font-family:'Orbitron';font-size:18px;color:var(--q-cyan);margin-top:4px">${username}</div>
+      </div>
+      <div style="background:rgba(0,20,50,0.5);border:1px solid var(--q-border);border-radius:8px;padding:16px">
+        <div class="stat-label">Total Searches</div>
+        <div style="font-family:'Orbitron';font-size:18px;color:var(--q-cyan);margin-top:4px">${user?user.searches||0:0}</div>
+      </div>
+    </div>
+    <div class="stat-label" style="margin-bottom:10px">Current Page</div>
+    <div style="background:rgba(2,5,12,0.9);border:1px solid var(--q-border);border-radius:8px;padding:16px;margin-bottom:16px;font-family:'Share Tech Mono';font-size:12px;word-break:break-all">
+      ${session?session.currentPage||'Home':'Offline'}
+    </div>
+    <div class="stat-label" style="margin-bottom:10px">Activity History (last 20)</div>
+    <div style="background:rgba(2,5,12,0.9);border:1px solid var(--q-border);border-radius:8px;overflow:hidden;max-height:250px;overflow-y:auto">
+      ${log.length===0
+        ?'<div style="padding:20px;text-align:center;color:rgba(200,232,255,0.3);font-family:Share Tech Mono;font-size:12px">No activity logged</div>'
+        :log.slice(0,20).map(e=>`<div class="log-entry" style="padding:10px 16px"><span class="log-time">${e.time}</span><span class="log-action">${e.action}</span></div>`).join('')
+      }
+    </div>`;
+  document.getElementById('user-modal').classList.add('open');
+}
+
+function closeUserModal(){ document.getElementById('user-modal').classList.remove('open'); }
+
+function deleteUser(username){
+  if(!confirm('Delete user "'+username+'"? This cannot be undone.')) return;
+  const users=getUsers(); delete users[username]; saveUsers(users);
+  localStorage.removeItem('qb_sess_'+username);
+  toast('User '+username+' deleted.'); loadAdminData();
+}
+
+// ── SEARCH ──
+function doHomeSearch(){ const q=document.getElementById('home-search-input').value.trim(); if(!q)return; document.getElementById('nav-search-input').value=q; performSearch(q); }
+function doSearch(){ const q=document.getElementById('nav-search-input').value.trim(); if(!q)return; performSearch(q); }
+
+function performSearch(query){
+  let url;
+  if(/^https?:\/\//i.test(query)) url=query;
+  else if(/^[\w-]+\.[\w.]+/.test(query)&&!query.includes(' ')) url='https://'+query;
+  else url='https://duckduckgo.com/?q='+encodeURIComponent(query)+'&kp=-1&kl=us-en';
+
+  if(currentUser){
+    const users=getUsers();
+    if(users[currentUser]){ users[currentUser].searches=(users[currentUser].searches||0)+1; saveUsers(users); }
+    logActivity(currentUser,'search','Searched: '+query);
+    const s=getSession(currentUser)||{searches:[]};
+    const searches=s.searches||[];
+    searches.push(query); if(searches.length>50)searches.shift();
+    updateSession(currentUser,{searches,currentPage:url,active:true});
+  }
+
+  document.getElementById('app-main-home').style.display='none';
+  const wrap=document.getElementById('result-frame-wrap');
+  wrap.classList.add('visible');
+
+  const iframe=document.getElementById('result-frame');
+  iframe.src=url;
+
+  // Most sites block iframe embedding; after 2s show helpful fallback
+  setTimeout(()=>{
+    try{
+      const d=iframe.contentDocument||iframe.contentWindow.document;
+      if(!d||d.URL==='about:blank'||!d.title){
+        showBlockedMsg(url);
+      }
+    }catch(e){ showBlockedMsg(url); }
+  },2500);
+}
+
+function showBlockedMsg(url){
+  const iframe=document.getElementById('result-frame');
+  try{
+    const d=iframe.contentDocument||iframe.contentWindow.document;
+    d.open();
+    const host=url.startsWith('http')?new URL(url).hostname:url;
+    d.write(`<!DOCTYPE html><html><head><style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{background:#020814;color:#c8e8ff;font-family:'Courier New',monospace;
+        display:flex;align-items:center;justify-content:center;height:100vh;
+        flex-direction:column;gap:20px;text-align:center;padding:20px}
+      .logo{font-size:32px;font-weight:900;letter-spacing:4px;
+        background:linear-gradient(135deg,#00f5ff,#0066ff);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+      p{color:rgba(200,232,255,0.5);font-size:13px;line-height:1.9;max-width:520px}
+      a{color:#00f5ff;text-decoration:none;padding:12px 32px;
+        border:1px solid #00f5ff;border-radius:6px;display:inline-block;
+        transition:all .3s;font-size:13px;margin-top:8px}
+      a:hover{background:rgba(0,245,255,0.1);box-shadow:0 0 20px rgba(0,245,255,0.3)}
+      .note{font-size:11px;color:rgba(0,245,255,0.3);letter-spacing:2px;margin-top:16px}
+    </style></head><body>
+      <div class="logo">&#x2B21; QB</div>
+      <p><strong style="color:#00f5ff">Site blocks embedding.</strong><br>
+      ${host} uses security headers (X-Frame-Options / CSP) that prevent iframe loading.<br>
+      A full web proxy requires a backend server (Node.js/Python) to bypass this.<br>
+      This frontend-only version opens results in a new tab.</p>
+      <a href="${url}" target="_blank">Open ${host} in New Tab &#x2197;</a>
+      <div class="note">TIP: Deploy a backend proxy for full inline browsing</div>
+    </body></html>`);
+    d.close();
+  }catch(e){ window.open(url,'_blank'); }
+}
+
+// ── SCREEN MANAGEMENT ──
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='app-screen'){
+    document.getElementById('app-main-home').style.display='';
+    document.getElementById('result-frame-wrap').classList.remove('visible');
+  }
+}
+
+// ── TOAST ──
+function toast(msg,duration=3000){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),duration);
+}
+
+// ── KEYBOARD ──
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ closeAdminLogin(); closeUserModal(); }
+});
+
+// ── AUTO LOGIN ──
+window.addEventListener('load',()=>{
+  const saved=localStorage.getItem('qb_current_user');
+  if(saved){ const users=getUsers(); if(users[saved]){ currentUser=saved; document.getElementById('nav-username').textContent='&#x2B21; '+saved.toUpperCase(); updateSession(saved,{active:true}); showScreen('app-screen'); } }
+});
+</script>
+</body>
+</html>

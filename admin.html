@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Bastion — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<!-- PeerJS for WebRTC signaling -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  :root {
+    --primary: #00f5ff;
+    --secondary: #7b2fff;
+    --accent: #ff2d78;
+    --success: #00ff88;
+    --warning: #ffbd2e;
+    --bg: #020408;
+    --surface: #0a0f1a;
+    --border: rgba(0,245,255,0.1);
+    --border-red: rgba(255,45,120,0.15);
+    --glow: 0 0 25px rgba(0,245,255,0.3);
+    --glow-red: 0 0 25px rgba(255,45,120,0.3);
+    --text: #c8eeff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Exo 2', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  #bg-canvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0; pointer-events: none; opacity: 0.2;
+  }
+
+  .grid-overlay {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,45,120,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,45,120,0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: 1; pointer-events: none;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(2,4,8,0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-red);
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+  }
+
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .admin-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--accent);
+    background: rgba(255,45,120,0.1);
+    border: 1px solid rgba(255,45,120,0.3);
+    padding: 5px 12px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    box-shadow: var(--glow-red);
+  }
+
+  .nav-logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .top-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .top-btn.outline {
+    background: none;
+    border: 1px solid var(--border);
+    color: rgba(0,245,255,0.5);
+  }
+
+  .top-btn.outline:hover { border-color: var(--primary); color: var(--primary); }
+
+  .top-btn.danger {
+    background: none;
+    border: 1px solid rgba(255,45,120,0.3);
+    color: rgba(255,45,120,0.7);
+  }
+
+  .top-btn.danger:hover { border-color: var(--accent); color: var(--accent); box-shadow: var(--glow-red); }
+
+  /* LAYOUT */
+  .admin-layout {
+    position: relative; z-index: 10;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 60px);
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: rgba(5,8,15,0.8);
+    border-right: 1px solid var(--border-red);
+    padding: 28px 0;
+    animation: slideInLeft 0.6s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  @keyframes slideInLeft {
+    from { transform: translateX(-20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  .sidebar-section {
+    margin-bottom: 8px;
+  }
+
+  .sidebar-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: rgba(255,45,120,0.4);
+    text-transform: uppercase;
+    padding: 0 20px;
+    margin-bottom: 6px;
+    margin-top: 20px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 2px solid transparent;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: rgba(0,245,255,0.4);
+    text-transform: uppercase;
+  }
+
+  .nav-item:hover {
+    background: rgba(0,245,255,0.03);
+    color: rgba(0,245,255,0.7);
+    border-left-color: rgba(0,245,255,0.3);
+  }
+
+  .nav-item.active {
+    background: rgba(0,245,255,0.06);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    text-shadow: 0 0 10px rgba(0,245,255,0.5);
+  }
+
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  /* CONTENT AREA */
+  .content {
+    padding: 32px;
+    overflow-y: auto;
+    animation: fadeIn 0.6s ease 0.2s both;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; animation: panelIn 0.4s ease; }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* PAGE HEADER */
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 2px;
+  }
+
+  .page-title span {
+    background: linear-gradient(135deg, var(--accent), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .page-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(0,245,255,0.3);
+    margin-top: 4px;
+  }
+
+  /* STATS GRID */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: rgba(10,15,26,0.8);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s;
+  }
+
+  .stat-card:hover {
+    border-color: rgba(0,245,255,0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: rgba(0,245,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--primary);
+    text-shadow: 0 0 20px rgba(0,245,255,0.4);
+  }
+
+  .stat-value.accent { color: var(--accent); text-shadow: 0 0 20px rgba(255,45,120,0.4); }
+  .stat-value.success { color: var(--success); text-shadow: 0 0 20px rgba(0,255,136,0.4); }
+
+  /* USERS TABLE */
+  .data-table {
+    background: rgba(10,15,26,0.8);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .table-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    padding: 14px 20px;
+    background: rgba(0,0,0,0.4);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: rgba(0,245,255,0.4);
+    text-transform: uppercase;
+  }
+
+  .table-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(0,245,255,0.04);
+    align-items: center;
+    transition: background 0.2s;
+  }
+
+  .table-row:last-child { border-bottom: none; }
+
+  .table-row:hover { background: rgba(0,245,255,0.03); }
+
+  .row-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .row-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: #000;
+    font-family: 'Orbitron', sans-serif;
+    flex-shrink: 0;
+  }
+
+  .row-date {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: rgba(0,245,255,0.4);
+  }
+
+  .row-count {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: var(--primary);
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .status-pill.online {
+    background: rgba(0,255,136,0.1);
+    border: 1px solid rgba(0,255,136,0.3);
+    color: var(--success);
+  }
+
+  .status-pill.offline {
+    background: rgba(0,245,255,0.05);
+    border: 1px solid rgba(0,245,255,0.1);
+    color: rgba(0,245,255,0.3);
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: dotPulse 2s infinite;
+  }
+
+  @keyframes dotPulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .action-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid;
+    text-transform: uppercase;
+  }
+
+  .action-btn.view {
+    background: rgba(123,47,255,0.1);
+    border-color: rgba(123,47,255,0.4);
+    color: #b48fff;
+  }
+
+  .action-btn.view:hover {
+    background: rgba(123,47,255,0.2);
+    box-shadow: var(--glow-purple);
+    color: #fff;
+  }
+
+  .action-btn.delete {
+    background: rgba(255,45,120,0.1);
+    border-color: rgba(255,45,120,0.3);
+    color: rgba(255,45,120,0.7);
+  }
+
+  .action-btn.delete:hover {
+    background: rgba(255,45,120,0.2);
+    box-shadow: var(--glow-red);
+    color: var(--accent);
+  }
+
+  /* ============================
+     SCREEN VIEWER SECTION
+     ============================ */
+  .screen-viewer {
+    background: rgba(10,15,26,0.9);
+    border: 1px solid var(--border-red);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .screen-viewer-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .live-badge {
+    background: rgba(255,45,120,0.2);
+    border: 1px solid rgba(255,45,120,0.4);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    animation: liveBlink 1.5s infinite;
+  }
+
+  @keyframes liveBlink {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .screen-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .peer-input {
+    flex: 1;
+    min-width: 200px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,45,120,0.2);
+    border-radius: 8px;
+    padding: 11px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: all 0.3s;
+  }
+
+  .peer-input:focus {
+    border-color: var(--accent);
+    box-shadow: var(--glow-red);
+  }
+
+  .peer-input::placeholder { color: rgba(255,45,120,0.3); }
+
+  .connect-btn {
+    padding: 11px 22px;
+    background: linear-gradient(135deg, rgba(255,45,120,0.15), rgba(123,47,255,0.15));
+    border: 1px solid rgba(255,45,120,0.5);
+    border-radius: 8px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+  }
+
+  .connect-btn:hover {
+    box-shadow: var(--glow-red);
+    color: #fff;
+    background: linear-gradient(135deg, rgba(255,45,120,0.25), rgba(123,47,255,0.25));
+  }
+
+  .disconnect-btn {
+    padding: 11px 22px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(0,245,255,0.2);
+    border-radius: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgba(0,245,255,0.5);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .disconnect-btn:hover { color: var(--primary); border-color: var(--primary); }
+
+  /* Screen display */
+  .screen-display {
+    background: #000;
+    border: 1px solid rgba(255,45,120,0.2);
+    border-radius: 12px;
+    width: 100%;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screen-placeholder {
+    text-align: center;
+    padding: 40px;
+  }
+
+  .screen-placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.3;
+  }
+
+  .screen-placeholder-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: rgba(255,45,120,0.4);
+    text-transform: uppercase;
+  }
+
+  .screen-placeholder-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: rgba(255,45,120,0.2);
+    margin-top: 8px;
+  }
+
+  #remote-video {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    display: none;
+    object-fit: contain;
+    background: #000;
+  }
+
+  .screen-status {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(0,0,0,0.8);
+    border: 1px solid;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    display: none;
+  }
+
+  .screen-status.connected {
+    border-color: rgba(0,255,136,0.4);
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .screen-status.waiting {
+    border-color: rgba(255,189,46,0.4);
+    color: var(--warning);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    animation: liveBlink 1.5s infinite;
+  }
+
+  /* ADMIN PEER ID */
+  .peer-id-box {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(0,245,255,0.1);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .peer-id-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: rgba(0,245,255,0.4);
+    white-space: nowrap;
+  }
+
+  .peer-id-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--primary);
+    flex: 1;
+  }
+
+  .copy-btn {
+    padding: 5px 12px;
+    background: rgba(0,245,255,0.08);
+    border: 1px solid rgba(0,245,255,0.2);
+    border-radius: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: rgba(0,245,255,0.6);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .copy-btn:hover { color: var(--primary); border-color: var(--primary); }
+
+  /* SECTION HEADER */
+  .section-header {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: rgba(0,245,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(0,245,255,0.15), transparent);
+  }
+
+  /* INSTRUCTIONS */
+  .info-box {
+    background: rgba(0,245,255,0.04);
+    border: 1px solid rgba(0,245,255,0.1);
+    border-radius: 10px;
+    padding: 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    line-height: 1.8;
+    color: rgba(0,245,255,0.5);
+    letter-spacing: 0.5px;
+    margin-bottom: 20px;
+  }
+
+  .info-box strong { color: var(--primary); }
+
+  /* NOTIFICATION TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(10,15,26,0.97);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--primary);
+    z-index: 999;
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+    max-width: 320px;
+    backdrop-filter: blur(20px);
+    box-shadow: var(--glow);
+  }
+
+  .toast.show { transform: translateX(0); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(0,245,255,0.2);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+
+  .action-row { display: flex; gap: 8px; }
+
+  @media (max-width: 768px) {
+    .admin-layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .table-head, .table-row { grid-template-columns: 1fr 1fr auto; }
+    .table-head span:nth-child(2),
+    .table-head span:nth-child(3),
+    .table-row > *:nth-child(2),
+    .table-row > *:nth-child(3) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="grid-overlay"></div>
+<div class="toast" id="toast">Message here</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="nav-logo">QUANTUM BASTION</div>
+    <div class="admin-badge">⚡ ADMIN CONTROL</div>
+  </div>
+  <div class="topbar-right">
+    <button class="top-btn outline" onclick="navTo('dashboard')">Dashboard</button>
+    <button class="top-btn danger" onclick="logout()">◈ Logout</button>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="admin-layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-label">Operations</div>
+    <div class="nav-item active" onclick="navTo('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">◈</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="navTo('users')" id="nav-users">
+      <span class="nav-icon">👥</span> Users
+    </div>
+
+    <div class="sidebar-label">Surveillance</div>
+    <div class="nav-item" onclick="navTo('screens')" id="nav-screens">
+      <span class="nav-icon">🖥</span> Screen View
+    </div>
+
+    <div class="sidebar-label">System</div>
+    <div class="nav-item" onclick="navTo('settings')" id="nav-settings">
+      <span class="nav-icon">⚙</span> Settings
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ==================== DASHBOARD ==================== -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Admin <span>Dashboard</span></div>
+          <div class="page-sub">⬡ SYSTEM OVERVIEW — ALL SECTORS</div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="dash-stats">
+        <div class="stat-card">
+          <div class="stat-label">Total Users</div>
+          <div class="stat-value" id="stat-users">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Searches</div>
+          <div class="stat-value success" id="stat-total-searches">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Sessions</div>
+          <div class="stat-value accent" id="stat-sessions">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">System Status</div>
+          <div class="stat-value success" style="font-size:16px;margin-top:8px;">ONLINE ●</div>
+        </div>
+      </div>
+
+      <div class="section-header">⬡ Recent Activity</div>
+      <div class="data-table" id="recent-table">
+        <div class="empty-state">⬡ NO ACTIVITY RECORDED</div>
+      </div>
+    </div>
+
+    <!-- ==================== USERS ==================== -->
+    <div class="panel" id="panel-users">
+      <div class="page-header">
+        <div>
+          <div class="page-title">User <span>Management</span></div>
+          <div class="page-sub">⬡ REGISTERED ACCOUNTS</div>
+        </div>
+        <button class="top-btn outline" onclick="refreshUsers()">↻ REFRESH</button>
+      </div>
+
+      <div class="data-table">
+        <div class="table-head">
+          <span>Username</span>
+          <span>Registered</span>
+          <span>Last Login</span>
+          <span>Searches</span>
+          <span>Actions</span>
+        </div>
+        <div id="users-body">
+          <div class="empty-state">⬡ NO USERS FOUND</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN VIEWER ==================== -->
+    <div class="panel" id="panel-screens">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Screen <span>Viewer</span></div>
+          <div class="page-sub">⬡ LIVE SCREEN MONITORING — QUANTUM BASTION ONLY</div>
+        </div>
+      </div>
+
+      <!-- INFO -->
+      <div class="info-box">
+        <strong>HOW IT WORKS:</strong> This uses WebRTC peer-to-peer connections.
+        Users on the site are assigned a <strong>Peer ID</strong>.
+        Enter their Peer ID below and click <strong>REQUEST VIEW</strong> to initiate a screen share request.
+        The user's browser will display a screen share permission prompt.
+        This only works while both you and the user are on the Quantum Bastion site.
+        <br><br>
+        <strong>ADMIN PEER ID</strong> (share with users or use the user table to find their IDs):
+      </div>
+
+      <!-- ADMIN PEER ID BOX -->
+      <div class="peer-id-box">
+        <span class="peer-id-label">YOUR ID:</span>
+        <span class="peer-id-val" id="admin-peer-id">Initializing...</span>
+        <button class="copy-btn" onclick="copyPeerId()">COPY</button>
+      </div>
+
+      <!-- SCREEN VIEWER -->
+      <div class="screen-viewer">
+        <div class="screen-viewer-title">
+          🖥 LIVE FEED
+          <span class="live-badge" id="live-badge">STANDBY</span>
+        </div>
+
+        <div class="screen-controls">
+          <input type="text" class="peer-input" id="target-peer-id" placeholder="Enter target Peer ID...">
+          <button class="connect-btn" onclick="requestScreenView()">⚡ REQUEST VIEW</button>
+          <button class="disconnect-btn" onclick="disconnectScreen()">◈ DISCONNECT</button>
+        </div>
+
+        <div class="screen-display">
+          <div class="screen-placeholder" id="screen-placeholder">
+            <div class="screen-placeholder-icon">🖥</div>
+            <div class="screen-placeholder-text">No Active Connection</div>
+            <div class="screen-placeholder-sub">Enter a Peer ID and request view</div>
+          </div>
+          <video id="remote-video" autoplay playsinline></video>
+          <div class="screen-status" id="screen-status"></div>
+        </div>
+      </div>
+
+      <!-- USER PEER IDS -->
+      <div class="section-header">⬡ Active User Peer IDs</div>
+      <div class="info-box">
+        Users get a Peer ID when they visit the proxy page while logged in.
+        Their Peer ID is saved in their profile. Check the Users panel for stored IDs,
+        or ask users to share their ID from their session.
+        <br><br>
+        <strong>NOTE:</strong> Peer IDs are generated fresh each session. IDs change when users refresh or log back in.
+      </div>
+
+      <div class="data-table" id="peer-table">
+        <div class="table-head" style="grid-template-columns: 1fr 1fr auto;">
+          <span>Username</span>
+          <span>Peer ID (last session)</span>
+          <span>Action</span>
+        </div>
+        <div id="peer-body">
+          <div class="empty-state">⬡ NO PEER IDS ON RECORD</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SETTINGS ==================== -->
+    <div class="panel" id="panel-settings">
+      <div class="page-header">
+        <div>
+          <div class="page-title">System <span>Settings</span></div>
+          <div class="page-sub">⬡ CONFIGURATION</div>
+        </div>
+      </div>
+
+      <div class="screen-viewer">
+        <div class="section-header">⬡ Site Configuration</div>
+        <div class="info-box">
+          <strong>ADMIN KEY:</strong> Change your admin password by editing index.html and updating the <code style="color:var(--accent)">ADMIN_KEY</code> variable.<br><br>
+          <strong>PROXY:</strong> The site uses corsproxy.io for URL proxying and DuckDuckGo for search.<br><br>
+          <strong>SCREEN VIEWING:</strong> Uses PeerJS cloud signaling (free). For production, host your own PeerJS server.<br><br>
+          <strong>DATA:</strong> All user data is stored in localStorage on each user's device.
+        </div>
+        <div class="section-header" style="margin-top:20px;">⬡ Danger Zone</div>
+        <button class="action-btn delete" onclick="clearAllData()" style="padding:12px 24px;font-size:12px;">
+          ⚠ CLEAR ALL USER DATA
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// AUTH CHECK — ADMIN ONLY
+// ============================================================
+const sess = sessionStorage.getItem('qb_session');
+if (!sess) { window.location.href = 'index.html'; }
+const session = JSON.parse(sess || '{}');
+if (session.role !== 'admin') { window.location.href = 'index.html'; }
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function navTo(panel) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + panel).classList.add('active');
+  document.getElementById('nav-' + panel)?.classList.add('active');
+  if (panel === 'dashboard') loadDashboard();
+  if (panel === 'users') loadUsers();
+  if (panel === 'screens') loadPeerTable();
+}
+
+// ============================================================
+// DATA HELPERS
+// ============================================================
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem('qb_users') || '{}'); } catch(e) { return {}; }
+}
+
+function saveUsers(u) { localStorage.setItem('qb_users', JSON.stringify(u)); }
+
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function loadDashboard() {
+  const users = getUsers();
+  const userList = Object.entries(users);
+  document.getElementById('stat-users').textContent = userList.length;
+  const totalSearches = userList.reduce((sum, [,u]) => sum + (u.searches || 0), 0);
+  document.getElementById('stat-total-searches').textContent = totalSearches;
+  document.getElementById('stat-sessions').textContent = userList.filter(([,u]) => u.lastLogin && (Date.now() - u.lastLogin < 3600000)).length;
+
+  const table = document.getElementById('recent-table');
+  if (!userList.length) {
+    table.innerHTML = '<div class="empty-state">⬡ NO USERS REGISTERED YET</div>';
+    return;
+  }
+  const sorted = userList.sort((a,b) => (b[1].lastLogin||0) - (a[1].lastLogin||0)).slice(0,5);
+  table.innerHTML = `
+    <div class="table-head" style="grid-template-columns:1fr 1fr 1fr;">
+      <span>Username</span><span>Last Login</span><span>Searches</span>
+    </div>
+    ${sorted.map(([name,u]) => `
+    <div class="table-row" style="grid-template-columns:1fr 1fr 1fr;">
+      <div class="row-user">
+        <div class="row-avatar">${name[0].toUpperCase()}</div>
+        ${name}
+      </div>
+      <div class="row-date">${fmtDate(u.lastLogin)}</div>
+      <div class="row-count">${u.searches || 0}</div>
+    </div>`).join('')}`;
+}
+
+// ============================================================
+// USERS TABLE
+// ============================================================
+function loadUsers() {
+  const users = getUsers();
+  const userList = Object.entries(users);
+  const body = document.getElementById('users-body');
+  if (!userList.length) {
+    body.innerHTML = '<div class="empty-state">⬡ NO USERS REGISTERED YET</div>';
+    return;
+  }
+  body.innerHTML = userList.map(([name,u]) => `
+    <div class="table-row" id="row-${name}">
+      <div class="row-user">
+        <div class="row-avatar">${name[0].toUpperCase()}</div>
+        ${name}
+      </div>
+      <div class="row-date">${fmtDate(u.created)}</div>
+      <div class="row-date">${fmtDate(u.lastLogin)}</div>
+      <div class="row-count">${u.searches || 0}</div>
+      <div class="action-row">
+        <button class="action-btn view" onclick="viewUserScreen('${name}')">🖥 VIEW</button>
+        <button class="action-btn delete" onclick="deleteUser('${name}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function refreshUsers() { loadUsers(); showToast('↻ Users refreshed'); }
+
+function deleteUser(name) {
+  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  const users = getUsers();
+  delete users[name];
+  saveUsers(users);
+  loadUsers();
+  showToast(`✓ User "${name}" deleted`);
+}
+
+function viewUserScreen(name) {
+  const users = getUsers();
+  const peerId = users[name]?.peerId;
+  if (!peerId) {
+    showToast('⚠ No Peer ID for ' + name + ' — they must be online');
+    navTo('screens');
+    return;
+  }
+  navTo('screens');
+  document.getElementById('target-peer-id').value = peerId;
+  showToast('⬡ Peer ID loaded for ' + name);
+}
+
+function clearAllData() {
+  if (!confirm('This will delete ALL user accounts. Continue?')) return;
+  localStorage.removeItem('qb_users');
+  loadDashboard();
+  loadUsers();
+  showToast('⚠ All user data cleared');
+}
+
+// ============================================================
+// PEER TABLE
+// ============================================================
+function loadPeerTable() {
+  const users = getUsers();
+  const userList = Object.entries(users).filter(([,u]) => u.peerId);
+  const body = document.getElementById('peer-body');
+  if (!userList.length) {
+    body.innerHTML = '<div class="empty-state">⬡ NO PEER IDS ON RECORD YET</div>';
+    return;
+  }
+  body.innerHTML = userList.map(([name, u]) => `
+    <div class="table-row" style="grid-template-columns:1fr 1fr auto;">
+      <div class="row-user">
+        <div class="row-avatar">${name[0].toUpperCase()}</div>
+        ${name}
+      </div>
+      <div class="row-date" style="font-size:10px;">${u.peerId}</div>
+      <button class="action-btn view" onclick="document.getElementById('target-peer-id').value='${u.peerId}'; showToast('⬡ ID loaded')">USE ID</button>
+    </div>`).join('');
+}
+
+// ============================================================
+// WEBRTC SCREEN VIEWER (PeerJS)
+// ============================================================
+let adminPeer = null;
+let currentCall = null;
+
+function initPeer() {
+  // Use PeerJS free cloud server
+  adminPeer = new Peer({
+    debug: 0,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    }
+  });
+
+  adminPeer.on('open', (id) => {
+    document.getElementById('admin-peer-id').textContent = id;
+    showToast('⬡ Admin peer initialized: ' + id.substring(0,12) + '...');
+    // Save admin peer ID
+    try {
+      localStorage.setItem('qb_admin_peer', id);
+    } catch(e) {}
+  });
+
+  adminPeer.on('error', (err) => {
+    document.getElementById('admin-peer-id').textContent = 'Error: ' + err.type;
+    console.warn('Peer error:', err);
+  });
+
+  // Listen for incoming calls (in case user initiates)
+  adminPeer.on('call', (call) => {
+    showToast('📞 Incoming screen share from user');
+    call.answer(); // Answer without sending stream
+    currentCall = call;
+    call.on('stream', (stream) => {
+      showRemoteStream(stream);
+    });
+    call.on('close', () => endStream());
+  });
+}
+
+function requestScreenView() {
+  const targetId = document.getElementById('target-peer-id').value.trim();
+  if (!targetId) { showToast('⚠ Enter a Peer ID first'); return; }
+  if (!adminPeer || !adminPeer.open) {
+    showToast('⚠ Peer not initialized — try refreshing');
+    return;
+  }
+
+  updateScreenStatus('waiting', '⟳ REQUESTING...');
+  showToast('⬡ Sending screen request to ' + targetId.substring(0,12) + '...');
+
+  // We call the peer with no stream — they send their screen to us
+  // The actual screen-share logic runs on the user side (proxy.html)
+  // Here admin sends a data connection to trigger the user to share screen
+  const conn = adminPeer.connect(targetId, { label: 'screen-request', reliable: true });
+
+  conn.on('open', () => {
+    conn.send({ type: 'SCREEN_REQUEST', adminId: adminPeer.id });
+    showToast('⬡ Screen request sent — waiting for user acceptance');
+    updateScreenStatus('waiting', '⟳ AWAITING USER...');
+  });
+
+  conn.on('data', (data) => {
+    if (data.type === 'SCREEN_ACCEPT') {
+      showToast('✓ User accepted — connecting stream');
+    } else if (data.type === 'SCREEN_DENY') {
+      showToast('✗ User denied screen share');
+      updateScreenStatus('', '');
+    }
+  });
+
+  conn.on('error', (err) => {
+    showToast('✗ Connection failed — user may be offline');
+    updateScreenStatus('', '');
+  });
+
+  // Listen for the call back with the screen stream
+  adminPeer.on('call', (call) => {
+    call.answer();
+    currentCall = call;
+    call.on('stream', (stream) => {
+      showRemoteStream(stream);
+      updateScreenStatus('connected', '● LIVE');
+      document.getElementById('live-badge').textContent = '● LIVE';
+    });
+    call.on('close', () => endStream());
+  });
+}
+
+function showRemoteStream(stream) {
+  const video = document.getElementById('remote-video');
+  const placeholder = document.getElementById('screen-placeholder');
+  video.srcObject = stream;
+  video.style.display = 'block';
+  placeholder.style.display = 'none';
+}
+
+function endStream() {
+  const video = document.getElementById('remote-video');
+  const placeholder = document.getElementById('screen-placeholder');
+  video.srcObject = null;
+  video.style.display = 'none';
+  placeholder.style.display = 'block';
+  updateScreenStatus('', '');
+  document.getElementById('live-badge').textContent = 'STANDBY';
+}
+
+function disconnectScreen() {
+  if (currentCall) {
+    currentCall.close();
+    currentCall = null;
+  }
+  endStream();
+  showToast('◈ Stream disconnected');
+}
+
+function updateScreenStatus(type, text) {
+  const el = document.getElementById('screen-status');
+  el.className = 'screen-status';
+  if (type) {
+    el.classList.add(type);
+    el.innerHTML = (type === 'connected' ? '<div class="status-dot"></div>' : '') + text;
+  }
+}
+
+function copyPeerId() {
+  const id = document.getElementById('admin-peer-id').textContent;
+  if (id === 'Initializing...') { showToast('⚠ Peer not ready yet'); return; }
+  navigator.clipboard.writeText(id).then(() => showToast('✓ Peer ID copied'));
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ============================================================
+// PARTICLE BG (red theme)
+// ============================================================
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+const particles = Array.from({length:60}, () => ({
+  x: Math.random() * canvas.width,
+  y: Math.random() * canvas.height,
+  vx: (Math.random()-0.5)*0.3,
+  vy: (Math.random()-0.5)*0.3,
+  r: Math.random()*1.5+0.5,
+  a: Math.random()*0.4+0.1,
+  p: Math.random()*Math.PI*2
+}));
+
+function animate() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  particles.forEach(p => {
+    p.x+=p.vx; p.y+=p.vy; p.p+=0.012;
+    if(p.x<0||p.x>canvas.width||p.y<0||p.y>canvas.height){
+      p.x=Math.random()*canvas.width; p.y=Math.random()*canvas.height;
+    }
+    const a = p.a*(0.4+0.6*Math.sin(p.p));
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,45,120,${a})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(animate);
+}
+animate();
+
+// ============================================================
+// LOGOUT
+// ============================================================
+function logout() {
+  sessionStorage.removeItem('qb_session');
+  window.location.href = 'index.html';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadDashboard();
+initPeer();
+showToast('⚡ Admin portal active');
+</script>
+</body>
+</html>

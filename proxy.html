@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Bastion — Gateway</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  :root {
+    --primary: #00f5ff;
+    --secondary: #7b2fff;
+    --accent: #ff2d78;
+    --bg: #020408;
+    --surface: #0a0f1a;
+    --border: rgba(0,245,255,0.12);
+    --glow: 0 0 30px rgba(0,245,255,0.4);
+    --text: #c8eeff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Exo 2', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: default;
+  }
+
+  /* CANVAS */
+  #bg-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.4;
+  }
+
+  .grid-overlay {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(2,4,8,0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: slideDown 0.6s cubic-bezier(0.16,1,0.3,1) both;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+  }
+
+  @keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .nav-logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .nav-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: rgba(0,245,255,0.5);
+    background: rgba(0,245,255,0.05);
+    border: 1px solid rgba(0,245,255,0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .user-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,245,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px 6px 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--primary);
+  }
+
+  .user-avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: #000;
+    font-family: 'Orbitron', sans-serif;
+  }
+
+  .logout-btn {
+    background: none;
+    border: 1px solid rgba(255,45,120,0.3);
+    border-radius: 8px;
+    padding: 7px 14px;
+    color: rgba(255,45,120,0.7);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .logout-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 15px rgba(255,45,120,0.2);
+  }
+
+  /* HERO SECTION */
+  .hero {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 60px 24px 40px;
+    animation: fadeUp 0.8s cubic-bezier(0.16,1,0.3,1) 0.3s both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(18px, 4vw, 36px);
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .hero-title span {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: rgba(0,245,255,0.4);
+  }
+
+  /* SEARCH BAR */
+  .search-section {
+    position: relative;
+    z-index: 10;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 24px 40px;
+    animation: fadeUp 0.8s cubic-bezier(0.16,1,0.3,1) 0.45s both;
+  }
+
+  .search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: rgba(10,15,26,0.9);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .search-wrap:focus-within {
+    border-color: var(--primary);
+    box-shadow: var(--glow), 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .search-icon {
+    padding: 0 16px;
+    color: rgba(0,245,255,0.4);
+    font-size: 18px;
+    pointer-events: none;
+    transition: color 0.3s;
+  }
+
+  .search-wrap:focus-within .search-icon { color: var(--primary); }
+
+  .search-input {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 18px 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: #e0f7ff;
+    outline: none;
+    caret-color: var(--primary);
+  }
+
+  .search-input::placeholder { color: rgba(0,245,255,0.2); }
+
+  .search-btn {
+    margin: 6px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, rgba(0,245,255,0.15), rgba(123,47,255,0.2));
+    border: 1px solid rgba(0,245,255,0.3);
+    border-radius: 10px;
+    color: var(--primary);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+  }
+
+  .search-btn:hover {
+    box-shadow: var(--glow);
+    color: #fff;
+    background: linear-gradient(135deg, rgba(0,245,255,0.25), rgba(123,47,255,0.3));
+  }
+
+  /* MODE TABS */
+  .mode-tabs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .mode-tab {
+    padding: 8px 18px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(0,245,255,0.4);
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+  }
+
+  .mode-tab.active {
+    background: rgba(0,245,255,0.1);
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: 0 0 15px rgba(0,245,255,0.1);
+  }
+
+  .mode-tab:hover:not(.active) {
+    color: rgba(0,245,255,0.7);
+    border-color: rgba(0,245,255,0.3);
+  }
+
+  /* MAIN CONTENT AREA */
+  .main-area {
+    position: relative;
+    z-index: 10;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+
+  /* FRAME MODE */
+  #frame-container {
+    width: 100%;
+    height: calc(100vh - 200px);
+    min-height: 500px;
+    background: rgba(10,15,26,0.9);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    display: none;
+  }
+
+  #frame-container.visible { display: block; animation: fadeIn 0.4s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+
+  .frame-toolbar {
+    height: 44px;
+    background: rgba(0,0,0,0.6);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+  }
+
+  .frame-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .frame-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  .frame-dot:nth-child(1) { background: #ff5f57; }
+  .frame-dot:nth-child(2) { background: #ffbd2e; }
+  .frame-dot:nth-child(3) { background: #28c840; }
+
+  .frame-url-bar {
+    flex: 1;
+    background: rgba(0,245,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: rgba(0,245,255,0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #proxy-frame {
+    width: 100%;
+    height: calc(100% - 44px);
+    border: none;
+    background: #fff;
+  }
+
+  /* QUICK LINKS */
+  .quick-section {
+    animation: fadeUp 0.8s cubic-bezier(0.16,1,0.3,1) 0.6s both;
+  }
+
+  .section-header {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: rgba(0,245,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(0,245,255,0.2), transparent);
+  }
+
+  .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .quick-card {
+    background: rgba(10,15,26,0.8);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .quick-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0,245,255,0.05), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .quick-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4), 0 0 20px rgba(0,245,255,0.1);
+  }
+
+  .quick-card:hover::before { opacity: 1; }
+
+  .quick-icon {
+    font-size: 24px;
+    width: 44px; height: 44px;
+    background: rgba(0,245,255,0.08);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,245,255,0.1);
+  }
+
+  .quick-info { flex: 1; min-width: 0; }
+
+  .quick-name {
+    font-family: 'Exo 2', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .quick-desc {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: rgba(0,245,255,0.3);
+    letter-spacing: 1px;
+  }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 32px;
+    animation: fadeUp 0.8s cubic-bezier(0.16,1,0.3,1) 0.5s both;
+  }
+
+  .stat-chip {
+    background: rgba(10,15,26,0.8);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: rgba(0,245,255,0.5);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stat-val {
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  /* NOTIFICATION */
+  .notification {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(10,15,26,0.95);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--primary);
+    z-index: 999;
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+    max-width: 300px;
+    backdrop-filter: blur(20px);
+    box-shadow: var(--glow);
+  }
+
+  .notification.show { transform: translateX(0); }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="grid-overlay"></div>
+
+<!-- NOTIFICATION -->
+<div class="notification" id="notif">⬡ Connection established</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="nav-logo">QB</div>
+    <div class="nav-badge">QUANTUM BASTION</div>
+  </div>
+  <div class="topbar-right">
+    <div class="user-chip">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span id="user-name">LOADING</span>
+    </div>
+    <button class="logout-btn" onclick="logout()">◈ LOGOUT</button>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-title">Welcome back, <span id="hero-name">Agent</span></div>
+  <div class="hero-sub">⬡ QUANTUM GATEWAY ACTIVE — ALL TRAFFIC ENCRYPTED ⬡</div>
+</div>
+
+<!-- SEARCH SECTION -->
+<div class="search-section">
+  <div class="mode-tabs">
+    <button class="mode-tab active" onclick="setMode('search', this)">🔍 Search</button>
+    <button class="mode-tab" onclick="setMode('proxy', this)">🌐 Proxy URL</button>
+  </div>
+
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text"
+      class="search-input"
+      id="search-input"
+      placeholder="Search the quantum web..."
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false">
+    <button class="search-btn" onclick="doSearch()">SEARCH</button>
+  </div>
+</div>
+
+<!-- MAIN AREA -->
+<div class="main-area">
+  <!-- FRAME -->
+  <div id="frame-container">
+    <div class="frame-toolbar">
+      <div class="frame-dots">
+        <div class="frame-dot"></div>
+        <div class="frame-dot"></div>
+        <div class="frame-dot"></div>
+      </div>
+      <div class="frame-url-bar" id="frame-url-bar">about:blank</div>
+      <button class="search-btn" onclick="closeFrame()" style="padding:6px 12px;font-size:10px;">✕ CLOSE</button>
+    </div>
+    <iframe id="proxy-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="*"></iframe>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-chip"><span class="stat-val" id="stat-searches">0</span> SEARCHES</div>
+    <div class="stat-chip">⬡ <span>ENCRYPTED TUNNEL</span></div>
+    <div class="stat-chip">⬡ DUCKDUCKGO POWERED</div>
+  </div>
+
+  <!-- QUICK LINKS -->
+  <div class="quick-section">
+    <div class="section-header">⬡ Quick Access</div>
+    <div class="quick-grid">
+      <div class="quick-card" onclick="quickSearch('YouTube')">
+        <div class="quick-icon">▶</div>
+        <div class="quick-info">
+          <div class="quick-name">YouTube</div>
+          <div class="quick-desc">Video Platform</div>
+        </div>
+      </div>
+      <div class="quick-card" onclick="quickSearch('Reddit')">
+        <div class="quick-icon">👾</div>
+        <div class="quick-info">
+          <div class="quick-name">Reddit</div>
+          <div class="quick-desc">Community Hub</div>
+        </div>
+      </div>
+      <div class="quick-card" onclick="quickSearch('Wikipedia')">
+        <div class="quick-icon">📖</div>
+        <div class="quick-info">
+          <div class="quick-name">Wikipedia</div>
+          <div class="quick-desc">Knowledge Base</div>
+        </div>
+      </div>
+      <div class="quick-card" onclick="quickSearch('GitHub')">
+        <div class="quick-icon">🐙</div>
+        <div class="quick-info">
+          <div class="quick-name">GitHub</div>
+          <div class="quick-desc">Code Repository</div>
+        </div>
+      </div>
+      <div class="quick-card" onclick="quickSearch('Discord')">
+        <div class="quick-icon">💬</div>
+        <div class="quick-info">
+          <div class="quick-name">Discord</div>
+          <div class="quick-desc">Chat Platform</div>
+        </div>
+      </div>
+      <div class="quick-card" onclick="quickSearch('Google Drive')">
+        <div class="quick-icon">☁</div>
+        <div class="quick-info">
+          <div class="quick-name">Google Drive</div>
+          <div class="quick-desc">Cloud Storage</div>
+        </div>
+      </div>
+      <div class="quick-card" onclick="quickSearch('Spotify music')">
+        <div class="quick-icon">🎵</div>
+        <div class="quick-info">
+          <div class="quick-name">Spotify</div>
+          <div class="quick-desc">Music Streaming</div>
+        </div>
+      </div>
+      <div class="quick-card" onclick="quickSearch('Twitter X social media')">
+        <div class="quick-icon">𝕏</div>
+        <div class="quick-info">
+          <div class="quick-name">X / Twitter</div>
+          <div class="quick-desc">Social Feed</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// AUTH CHECK
+// ============================================================
+const sess = sessionStorage.getItem('qb_session');
+if (!sess) window.location.href = 'index.html';
+const session = JSON.parse(sess || '{}');
+const username = session.username || 'AGENT';
+
+document.getElementById('user-name').textContent = username.toUpperCase();
+document.getElementById('hero-name').textContent = username;
+document.getElementById('user-avatar').textContent = username[0].toUpperCase();
+
+// Load search count from user data
+function getSearchCount() {
+  try {
+    const users = JSON.parse(localStorage.getItem('qb_users') || '{}');
+    return (users[username] && users[username].searches) || 0;
+  } catch(e) { return 0; }
+}
+
+function incSearchCount() {
+  try {
+    const users = JSON.parse(localStorage.getItem('qb_users') || '{}');
+    if (!users[username]) users[username] = {};
+    users[username].searches = (users[username].searches || 0) + 1;
+    localStorage.setItem('qb_users', JSON.stringify(users));
+    document.getElementById('stat-searches').textContent = users[username].searches;
+  } catch(e) {}
+}
+
+document.getElementById('stat-searches').textContent = getSearchCount();
+
+// ============================================================
+// SEARCH LOGIC
+// ============================================================
+let currentMode = 'search';
+
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const inp = document.getElementById('search-input');
+  if (mode === 'search') {
+    inp.placeholder = 'Search the quantum web...';
+    document.querySelector('.search-icon').textContent = '🔍';
+  } else {
+    inp.placeholder = 'Enter URL (e.g. youtube.com)...';
+    document.querySelector('.search-icon').textContent = '🌐';
+  }
+}
+
+function doSearch() {
+  const query = document.getElementById('search-input').value.trim();
+  if (!query) return;
+
+  incSearchCount();
+
+  if (currentMode === 'proxy') {
+    let url = query;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    openFrame('https://corsproxy.io/?' + encodeURIComponent(url), url);
+  } else {
+    // Open DuckDuckGo search in new tab (most reliable)
+    const ddgUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(query) + '&t=quantum_bastion';
+    window.open(ddgUrl, '_blank');
+    showNotif('🔍 Searching DuckDuckGo: ' + query);
+  }
+}
+
+function quickSearch(query) {
+  document.getElementById('search-input').value = query;
+  const ddgUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(query);
+  incSearchCount();
+  window.open(ddgUrl, '_blank');
+  showNotif('🔍 Opening: ' + query);
+}
+
+function openFrame(src, label) {
+  const container = document.getElementById('frame-container');
+  const frame = document.getElementById('proxy-frame');
+  const urlBar = document.getElementById('frame-url-bar');
+  frame.src = src;
+  urlBar.textContent = label || src;
+  container.classList.add('visible');
+  document.getElementById('stats-bar').style.display = 'none';
+  document.querySelector('.quick-section').style.display = 'none';
+  showNotif('🌐 Tunnel opened: ' + (label || src));
+}
+
+function closeFrame() {
+  const container = document.getElementById('frame-container');
+  const frame = document.getElementById('proxy-frame');
+  frame.src = 'about:blank';
+  container.classList.remove('visible');
+  document.getElementById('stats-bar').style.display = '';
+  document.querySelector('.quick-section').style.display = '';
+}
+
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function showNotif(text) {
+  const n = document.getElementById('notif');
+  n.textContent = text;
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 3000);
+}
+
+function logout() {
+  sessionStorage.removeItem('qb_session');
+  window.location.href = 'index.html';
+}
+
+// ============================================================
+// PARTICLE BG
+// ============================================================
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+const particles = [];
+for (let i = 0; i < 80; i++) {
+  particles.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    vx: (Math.random() - 0.5) * 0.3,
+    vy: (Math.random() - 0.5) * 0.3,
+    r: Math.random() * 1.5 + 0.5,
+    a: Math.random() * 0.4 + 0.1,
+    p: Math.random() * Math.PI * 2
+  });
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.p += 0.015;
+    if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+      p.x = Math.random() * canvas.width;
+      p.y = Math.random() * canvas.height;
+    }
+    const a = p.a * (0.5 + 0.5 * Math.sin(p.p));
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0,245,255,${a})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(animate);
+}
+animate();
+
+// Welcome notification
+setTimeout(() => showNotif('⬡ Quantum tunnel active — welcome ' + username), 800);
+
+// ============================================================
+// PEERJS — SCREEN SHARE LISTENER
+// ============================================================
+let userPeer = null;
+
+function initUserPeer() {
+  userPeer = new Peer({
+    debug: 0,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    }
+  });
+
+  userPeer.on('open', (id) => {
+    // Save peer ID to user profile
+    try {
+      const users = JSON.parse(localStorage.getItem('qb_users') || '{}');
+      if (users[username]) {
+        users[username].peerId = id;
+        localStorage.setItem('qb_users', JSON.stringify(users));
+      }
+    } catch(e) {}
+  });
+
+  userPeer.on('connection', (conn) => {
+    conn.on('data', (data) => {
+      if (data.type === 'SCREEN_REQUEST') {
+        handleScreenRequest(conn, data.adminId);
+      }
+    });
+  });
+
+  userPeer.on('error', (err) => {
+    console.warn('Peer error:', err.type);
+  });
+}
+
+function handleScreenRequest(conn, adminId) {
+  // Show a consent dialog
+  const agreed = confirm(
+    '🖥 SCREEN SHARE REQUEST\n\n' +
+    'The site administrator is requesting to view your screen.\n\n' +
+    'This is part of the Quantum Bastion monitoring policy.\n\n' +
+    'Click OK to allow, or Cancel to deny.'
+  );
+
+  if (!agreed) {
+    conn.send({ type: 'SCREEN_DENY' });
+    return;
+  }
+
+  conn.send({ type: 'SCREEN_ACCEPT' });
+
+  // Get screen stream
+  navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+    .then((stream) => {
+      // Call the admin with the screen stream
+      const call = userPeer.call(adminId, stream);
+      showNotif('🔴 Screen sharing active — admin is viewing');
+
+      // Stop sharing when stream ends
+      stream.getVideoTracks()[0].onended = () => {
+        call.close();
+        showNotif('◈ Screen share ended');
+      };
+    })
+    .catch((err) => {
+      console.warn('Screen share denied by user or browser:', err);
+      showNotif('⚠ Screen share permission denied');
+    });
+}
+
+// Init peer after session is established
+setTimeout(initUserPeer, 1000);
+</script>
+</body>
+</html>
